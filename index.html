@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>pra Maily ♡</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; }
+  body {
+    background:radial-gradient(ellipse at 50% 30%, #1d2246 0%, #0b0c1a 70%);
+    color:#fff; font-family:'JetBrains Mono', monospace;
+    transition:opacity .8s ease;
+  }
+  body.saindo { opacity:0; }
+  #ceu { position:fixed; inset:0; z-index:0; }
+  #chuva { position:fixed; inset:0; z-index:1; overflow:hidden; pointer-events:none; }
+
+  .foto {
+    position:absolute; top:0; left:0; will-change:transform;
+    background:#f7f0e6; padding:5px 5px 18px; border-radius:2px;
+    box-shadow:0 10px 26px rgba(0,0,0,.55);
+  }
+  .foto img { display:block; width:100%; height:100%; object-fit:cover; }
+
+  .centro {
+    position:fixed; inset:0; z-index:2;
+    background:radial-gradient(ellipse 55% 32% at 50% 50%, rgba(8,9,22,.72) 0%, rgba(8,9,22,.35) 55%, transparent 100%); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; pointer-events:none;
+  }
+  h1 {
+    font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:500;
+    font-size:clamp(88px, 25vw, 220px); line-height:.9; margin:0 0 34px; color:#fff;
+    text-shadow:0 0 30px rgba(255,255,255,.45), 0 0 80px rgba(255,140,190,.35), 0 4px 30px rgba(0,0,0,.8);
+    opacity:0; animation:sobe 1.6s .4s forwards;
+  }
+  .botao {
+    pointer-events:auto; font-family:'JetBrains Mono', monospace; font-size:16px; letter-spacing:.18em;
+    padding:16px 40px; border-radius:999px; cursor:pointer; color:#fff;
+    border:1px solid rgba(255,255,255,.7); background:rgba(15,16,35,.55);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    box-shadow:0 0 30px rgba(255,140,190,.35);
+    opacity:0; animation:sobe 1.2s 1.4s forwards, pulsa 2.4s 2.6s ease-in-out infinite;
+    transition:background .3s, transform .2s;
+  }
+  .botao:hover { background:rgba(255,122,168,.25); transform:scale(1.05); }
+
+  @keyframes sobe { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+  @keyframes pulsa {
+    0%,100% { box-shadow:0 0 22px rgba(255,140,190,.3); }
+    50% { box-shadow:0 0 50px rgba(255,140,190,.7); }
+  }
+</style>
+</head>
+<body>
+<canvas id="ceu"></canvas>
+<div id="chuva"></div>
+
+<div class="centro">
+  <h1>te amo!</h1>
+  <button class="botao" id="botao">presente</button>
+</div>
+
+<script>
+  // ---- fotos (troque/adicione aqui) ----
+  const FOTOS = Array.from({ length: 17 }, (_, i) => `fotos/${String(i + 1).padStart(2, '0')}.jpg`);
+
+  const R = Math.random, rnd = (a, b) => a + R() * (b - a);
+  let W = innerWidth, H = innerHeight;
+
+  // ---- céu estrelado ----
+  const c = document.getElementById('ceu'), ctx = c.getContext('2d');
+  let estrelas = [];
+  function ajusta() {
+    W = innerWidth; H = innerHeight;
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    c.width = W * dpr; c.height = H * dpr; c.style.width = W + 'px'; c.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    estrelas = Array.from({ length: Math.round(W * H / 5000) }, () => ({
+      x: R() * W, y: R() * H, r: rnd(.4, 1.6), f: R() * 6.28, v: rnd(.6, 2.2),
+      c: ['255,255,255', '255,240,200', '255,210,230', '200,225,255'][R() * 4 | 0]
+    }));
+  }
+  addEventListener('resize', ajusta); ajusta();
+
+  // ---- chuva de fotos ----
+  const chuva = document.getElementById('chuva');
+  const fila = [...FOTOS].sort(() => R() - .5);
+  let prox = 0;
+  const caindo = [];
+  const tamBase = () => Math.max(95, Math.min(190, Math.min(W, H) * .27));
+
+  function novaFoto(yInicial) {
+    const el = document.createElement('div');
+    el.className = 'foto';
+    const w = tamBase() * rnd(.75, 1.15), h = w * 1.25;
+    el.style.width = w + 'px'; el.style.height = h + 'px';
+    el.innerHTML = `<img src="${fila[prox++ % fila.length]}" alt="">`;
+    chuva.appendChild(el);
+    const f = {
+      el, w, h,
+      x0: proximaFaixa(w),                     // centro da oscilação
+      y: yInicial ?? -h - rnd(0, 60),
+      vy: rnd(38, 70),                         // px/s
+      amp: rnd(25, 70), freq: rnd(.5, 1.1), fase: R() * 6.28,
+      rot: rnd(-8, 8), rotAmp: rnd(4, 10),
+      z: rnd(.75, 1)                           // profundidade (escala/opacidade)
+    };
+    el.style.opacity = .55 + .45 * f.z;
+    el.style.zIndex = Math.round(f.z * 100);
+    caindo.push(f);
+  }
+
+  const QTD = () => Math.round(Math.max(8, Math.min(12, W * H / 70000)));
+
+  // faixas horizontais embaralhadas, pra não amontoar
+  let faixas = [];
+  function proximaFaixa(w) {
+    if (!faixas.length) {
+      const n = Math.max(3, Math.round(W / (tamBase() * 1.1)));
+      faixas = Array.from({ length: n }, (_, i) => i).sort(() => R() - .5).map(i => i / n);
+    }
+    return faixas.pop() * (W - w * .4) - w * .3 + rnd(0, w * .4);
+  }
+
+  // já começa com fotos espalhadas de cima a baixo
+  const n0 = QTD();
+  for (let i = 0; i < n0; i++) novaFoto(-tamBase() * 1.3 + (i / n0) * (H + tamBase()));
+  let proxSpawn = 0;
+
+  let ultimo = performance.now(), t = 0;
+  function quadro(agora) {
+    const dt = Math.min(.05, (agora - ultimo) / 1000); ultimo = agora; t += dt;
+
+    // estrelas
+    ctx.clearRect(0, 0, W, H);
+    for (const e of estrelas) {
+      ctx.fillStyle = `rgba(${e.c},${.25 + .7 * (.5 + .5 * Math.sin(e.f + t * e.v))})`;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 6.283); ctx.fill();
+    }
+
+    // fotos em zigue-zague
+    for (let i = caindo.length - 1; i >= 0; i--) {
+      const f = caindo[i];
+      f.y += f.vy * f.z * dt;
+      const x = f.x0 + Math.sin(t * f.freq + f.fase) * f.amp;
+      const r = f.rot + Math.sin(t * f.freq + f.fase + 1) * f.rotAmp;
+      f.el.style.transform = `translate(${x}px, ${f.y}px) rotate(${r}deg) scale(${f.z})`;
+      if (f.y > H + 40) { f.el.remove(); caindo.splice(i, 1); }
+    }
+    proxSpawn -= dt;
+    if (caindo.length < QTD() && proxSpawn <= 0) {
+      novaFoto();
+      proxSpawn = (H + tamBase() * 1.3) / (55 * .87) / QTD();
+    }
+
+    requestAnimationFrame(quadro);
+  }
+  requestAnimationFrame(quadro);
+
+  document.getElementById('botao').onclick = () => {
+    document.body.classList.add('saindo');
+    setTimeout(() => location.href = 'buque.html', 800);
+  };
+</script>
+</body>
+</html>

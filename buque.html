@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>flores pra Maily ✿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:#10132a; touch-action:none; }
+  body { background:radial-gradient(ellipse at 50% 40%, #1c2147 0%, #0d0f22 70%); animation:entra 1.2s ease; }
+  canvas { display:block; cursor:grab; }
+  canvas:active { cursor:grabbing; }
+  #msg {
+    position:fixed; left:0; right:0; bottom:7vh; text-align:center; padding:0 20px;
+    font-family:'JetBrains Mono', monospace; font-size:clamp(12px, 3.4vw, 16px);
+    color:#ff8fb4; letter-spacing:.06em; text-shadow:0 0 12px rgba(255,120,170,.6);
+    min-height:1.4em;
+  }
+  #msg::after { content:'▌'; animation:pisca 1s steps(1) infinite; opacity:.8; }
+  #msg.fim::after { content:''; }
+  #dica {
+    position:fixed; left:0; right:0; bottom:3vh; text-align:center;
+    font-family:'JetBrains Mono', monospace; font-size:11px; color:#6c6a92;
+    opacity:0; transition:opacity 1.5s;
+  }
+  #voltar {
+    position:fixed; top:16px; left:18px; font-family:'JetBrains Mono', monospace;
+    font-size:12px; color:#7d79a8; text-decoration:none; z-index:2;
+  }
+  @keyframes pisca { 50% { opacity:0; } }
+  @keyframes entra { from { opacity:0; } to { opacity:1; } }
+</style>
+</head>
+<body>
+<a id="voltar" href="index.html">← voltar</a>
+<canvas id="c"></canvas>
+<div id="msg"></div>
+<div id="dica">arraste pra girar ✿</div>
+
+<script>
+// ===================== personalize aqui =====================
+const MENSAGEM = 'você é minha alma gêmea pra sempre, Maily';
+// ============================================================
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const R = Math.random;
+const rnd = (a, b) => a + R() * (b - a);
+const pick = arr => arr[R() * arr.length | 0];
+
+// paleta [r,g,b]
+const PAL = [
+  [120, 205, 115], // 0 caule
+  [ 70, 175,  95], // 1 folha
+  [240,  70,  75], // 2 vermelho
+  [255, 120, 175], // 3 rosa
+  [255, 212,  80], // 4 amarelo
+  [ 95, 135, 255], // 5 azul
+  [175, 115, 245], // 6 roxo
+  [245, 242, 235], // 7 branco
+  [255, 150,  60], // 8 laranja
+  [150, 145, 255], // 9 lavanda
+  [255,  85, 140], // 10 laço
+  [255, 185, 205], // 11 rosa claro
+];
+const NIVEIS = 8;
+const CORES = PAL.map(([r, g, b]) =>
+  Array.from({ length: NIVEIS }, (_, i) => {
+    const k = .45 + .55 * (i / (NIVEIS - 1));
+    return `rgb(${r * k | 0},${g * k | 0},${b * k | 0})`;
+  }));
+
+// ---------- geometria do buquê ----------
+// cada ponto: x,y,z | âncora ax,ay,az (de onde "desabrocha") | t0 início | dur | ch char | c cor | tx,ty,tz tangente (caules)
+const P = [];
+const BASE = [0, -1.05, 0];
+
+function add(x, y, z, ch, c, t0, dur = .01, anc = null, tan = null) {
+  P.push({ x, y, z, ch, c, t0, dur,
+    ax: anc ? anc[0] : x, ay: anc ? anc[1] : y, az: anc ? anc[2] : z,
+    tan });
+}
+function norm(v) { const l = Math.hypot(...v) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+function bases(n) {
+  const up = Math.abs(n[1]) < .9 ? [0, 1, 0] : [1, 0, 0];
+  const u = norm(cross(n, up)); const v = cross(n, u); return [u, v];
+}
+
+function caule(H, delay, crescer = 1.8, amostras = 80, cor = 0) {
+  const C = [H[0] * .12, -.25, H[2] * .12];
+  for (let i = 0; i <= amostras; i++) {
+    const s = i / amostras, m = 1 - s;
+    const p = [0, 1, 2].map(k => m * m * BASE[k] + 2 * m * s * C[k] + s * s * H[k]);
+    const d = [0, 1, 2].map(k => 2 * m * (C[k] - BASE[k]) + 2 * s * (H[k] - C[k]));
+    const tex = R() < .14 ? pick([':', '.', "'"]) : null;
+    add(p[0], p[1], p[2], tex, cor, delay + s * crescer, .01, null, norm(d));
+  }
+  return [0, 1, 2].map(k => 2 * (H[k] - C[k])); // direção final
+}
+
+function florRedonda(H, t0) {
+  const r = rnd(.1, .15), c = pick([2, 3, 4, 5, 6, 8, 7, 11, 2, 3]);
+  const ch = pick(['@', 'o', '0', '#', 'O', '8']);
+  const n = 340;
+  for (let i = 0; i < n; i++) {
+    const u = R() * 2 - 1, a = R() * 6.283, s = Math.sqrt(1 - u * u);
+    const k = Math.cbrt(rnd(.55, 1));
+    add(H[0] + r * k * s * Math.cos(a), H[1] + r * .78 * k * u, H[2] + r * k * s * Math.sin(a),
+      R() < .72 ? ch : pick(['o', '@', '0', '*']), c, t0 + R() * .3, .9, H);
+  }
+}
+
+function margarida(H, dir, t0) {
+  const n = norm(dir), [u, v] = bases(n);
+  const cor = pick([7, 7, 11, 3, 4]);
+  for (let i = 0; i < 170; i++) {
+    const a = R() * 6.283, rr = rnd(.035, .12);
+    const p = [0, 1, 2].map(k => H[k] + rr * (Math.cos(a) * u[k] + Math.sin(a) * v[k]) + n[k] * rnd(-.01, .02));
+    add(...p, pick(['o', '0', 'o', '=']), cor, t0 + R() * .3, .9, H);
+  }
+  for (let i = 0; i < 45; i++) {
+    const a = R() * 6.283, rr = rnd(0, .033);
+    const p = [0, 1, 2].map(k => H[k] + rr * (Math.cos(a) * u[k] + Math.sin(a) * v[k]) + n[k] * .025);
+    add(...p, pick(['@', '#', '*']), 4, t0 + .2, .7, H);
+  }
+}
+
+function lavanda(H, dir, t0) {
+  const n = norm([dir[0] * .5, Math.max(dir[1], .6) + .4, dir[2] * .5]);
+  const cor = pick([6, 9, 5, 6]), len = rnd(.2, .32);
+  for (let s = 0; s <= 1; s += .04) {
+    const rad = .03 * (1 - s * .6), c = [0, 1, 2].map(k => H[k] + n[k] * len * s);
+    for (let j = 0; j < 7; j++) {
+      const a = j / 7 * 6.283 + s * 3;
+      const [u, v] = bases(n);
+      const p = [0, 1, 2].map(k => c[k] + rad * (Math.cos(a) * u[k] + Math.sin(a) * v[k]));
+      add(...p, pick(['o', '0', '8', 'o']), cor, t0 + s * .9, .4, c);
+    }
+  }
+}
+
+function mosquitinho(H, t0) { // flor-de-mosquito branquinha
+  for (let i = 0; i < 26; i++) {
+    const p = [H[0] + rnd(-.08, .08), H[1] + rnd(-.05, .07), H[2] + rnd(-.08, .08)];
+    add(...p, pick(['.', 'o', '°', '.', '*']), 7, t0 + R() * .5, .6, H);
+  }
+}
+
+function folha(Hs, t0) {
+  // folha saindo de um ponto do caule para fora
+  const out = norm([Hs[0] || .01, .55, Hs[2] || .01]);
+  const [u] = bases(out);
+  for (let s = 0; s < 1; s += .025) {
+    const w = Math.sin(s * Math.PI) * .03;
+    for (let j = -2; j <= 2; j++) {
+      const p = [0, 1, 2].map(k => Hs[k] + out[k] * s * .17 + u[k] * w * j / 2);
+      add(...p, pick(['~', '=', '-', '~']), 1, t0 + s * .4, .3, Hs);
+    }
+  }
+}
+
+(function monta() {
+  const N = 26;
+  for (let i = 0; i < N; i++) {
+    const phi = i * 2.39996 + rnd(-.2, .2);
+    const r = .12 + .8 * Math.sqrt((i + .5) / N);
+    const y = .95 - .78 * r * r + rnd(-.06, .06);
+    const H = [r * Math.cos(phi), y, r * Math.sin(phi)];
+    const delay = rnd(0, .9);
+    const dir = caule(H, delay);
+    const tf = delay + 1.8;
+    const tipo = R();
+    if (tipo < .45) florRedonda(H, tf);
+    else if (tipo < .68) margarida(H, dir, tf);
+    else lavanda(H, dir, tf);
+    if (R() < .35) mosquitinho([H[0] * 1.08, H[1] + .1, H[2] * 1.08], tf + .4);
+  }
+  // galhinhos de mosquitinho
+  for (let i = 0; i < 14; i++) {
+    const phi = R() * 6.283, r = rnd(.3, 1), y = .95 - .7 * r * r + .05;
+    const H = [r * Math.cos(phi), y, r * Math.sin(phi)];
+    const d = rnd(.3, 1.2);
+    caule(H, d, 1.8, 50);
+    mosquitinho(H, d + 1.9);
+  }
+  // folhas
+  for (let i = 0; i < 16; i++) {
+    const phi = R() * 6.283, r = rnd(.08, .3), y = rnd(-.35, .05);
+    folha([r * Math.cos(phi), y, r * Math.sin(phi)], rnd(1.2, 2.2));
+  }
+  // laço
+  const ly = -.62;
+  for (let a = 0; a < 6.283; a += .09)
+    for (let h = -.03; h <= .03; h += .03)
+      add(.085 * Math.cos(a), ly + h, .085 * Math.sin(a), pick(['=', '#']), 10, 2.6, .5, [0, ly, 0]);
+  for (const sgn of [-1, 1]) {
+    for (let a = 0; a < 6.283; a += .22) {
+      const p = [sgn * (.09 + .06 * Math.cos(a)), ly + .045 * Math.sin(a), .1];
+      add(...p, 'o', 10, 2.8, .5, [0, ly, .1]);
+    }
+    for (let s = 0; s < 1; s += .1)
+      add(sgn * .03 * (1 + s * 2), ly - s * .14, .1, sgn > 0 ? '\\' : '/', 3, 2.9, .4, [0, ly, .1]);
+  }
+})();
+
+// ---------- render ----------
+let W, H, fs, cw, chh, cols, rows, esc, cx, cy, zb, cel, celB;
+let estrelas = [];
+function ajusta() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fs = Math.max(6.5, Math.min(12, Math.min(W, H * .8) / 64));
+  cw = fs * .6; chh = fs * .95;
+  cols = Math.ceil(W / cw); rows = Math.ceil(H / chh);
+  esc = Math.min(W * .46, H * .38);
+  cx = W / 2; cy = H * .45;
+  zb = new Float32Array(cols * rows); cel = new Int32Array(cols * rows); celB = new Float32Array(cols * rows);
+  const n = Math.round(W * H / 6500);
+  estrelas = Array.from({ length: n }, () => ({
+    x: R() * W, y: R() * H, f: R() * 6.28, v: rnd(.6, 2),
+    ch: pick(['.', '.', '.', '·', '+', '*', 'o', '°']),
+    c: pick(['#ffffff', '#fff3b0', '#ffc2d8', '#a8f0ff', '#b8ffb0', '#d4c2ff'])
+  }));
+  for (let i = 0; i < 7; i++) estrelas.push({ x: R() * W, y: R() * H, f: R() * 6.28, v: rnd(.5, 1.2), ch: '+', c: pick(['#9dffb0', '#7ee8ff', '#fff07a']), big: 1 });
+}
+addEventListener('resize', ajusta); ajusta();
+
+// arrastar pra girar
+let ang = 0, vel = 0, arrastando = false, lx = 0;
+canvas.addEventListener('pointerdown', e => { arrastando = true; lx = e.clientX; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => { if (!arrastando) return; const d = (e.clientX - lx) * .008; ang += d; vel = d; lx = e.clientX; });
+addEventListener('pointerup', () => arrastando = false);
+
+const ease = t => t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3);
+const TILT = .2, ct = Math.cos(TILT), st = Math.sin(TILT), D = 3.4;
+let inicio = null, ultimo = 0;
+
+function quadro(ms) {
+  if (inicio === null) inicio = ms;
+  const T = (ms - inicio) / 1000, dt = Math.min(.05, (ms - ultimo) / 1000 || 0); ultimo = ms;
+  if (!arrastando) { ang += dt * .45 + vel; vel *= .94; }
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.font = `${fs}px "JetBrains Mono", monospace`;
+  ctx.textBaseline = 'top';
+
+  // estrelas
+  for (const e of estrelas) {
+    ctx.globalAlpha = .2 + .7 * (.5 + .5 * Math.sin(e.f + T * e.v));
+    ctx.fillStyle = e.c;
+    if (e.big) { ctx.font = `${fs * 1.8}px "JetBrains Mono", monospace`; ctx.fillText('+', e.x, e.y); ctx.font = `${fs}px "JetBrains Mono", monospace`; }
+    else ctx.fillText(e.ch, e.x, e.y);
+  }
+  ctx.globalAlpha = 1;
+
+  // buquê → grade de caracteres com z-buffer
+  zb.fill(1e9); cel.fill(-1);
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  for (let i = 0; i < P.length; i++) {
+    const p = P[i];
+    if (T < p.t0) continue;
+    const e = ease((T - p.t0) / p.dur);
+    const x0 = p.ax + (p.x - p.ax) * e, y0 = p.ay + (p.y - p.ay) * e, z0 = p.az + (p.z - p.az) * e;
+    // gira em Y, inclina em X
+    const x1 = x0 * ca - z0 * sa, z1 = x0 * sa + z0 * ca;
+    const y2 = y0 * ct - z1 * st, z2 = y0 * st + z1 * ct;
+    const k = D / (D + z2);
+    const sx = cx + x1 * esc * k, sy = cy - y2 * esc * k;
+    const gx = sx / cw | 0, gy = sy / chh | 0;
+    if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) continue;
+    const idx = gy * cols + gx;
+    if (z2 < zb[idx]) { zb[idx] = z2; cel[idx] = i; celB[idx] = k; }
+  }
+  for (let idx = 0; idx < cel.length; idx++) {
+    const i = cel[idx]; if (i < 0) continue;
+    const p = P[i];
+    let ch = p.ch;
+    if (!ch) { // caractere do caule pela direção na tela
+      const t = p.tan, tx = t[0] * ca - t[2] * sa, tz = t[0] * sa + t[2] * ca;
+      const ty = t[1] * ct - tz * st;
+      const q = tx / (Math.abs(ty) + 1e-6);
+      ch = Math.abs(q) < .35 ? '|' : Math.abs(q) > 2.5 ? '-' : (q > 0 ? '/' : '\\');
+    }
+    const z = zb[idx];
+    const lvl = Math.max(0, Math.min(NIVEIS - 1, Math.round((1 - (z + 1.1) / 2.2) * (NIVEIS - 1))));
+    ctx.fillStyle = CORES[p.c][lvl];
+    ctx.fillText(ch, (idx % cols) * cw, (idx / cols | 0) * chh);
+  }
+  requestAnimationFrame(quadro);
+}
+requestAnimationFrame(quadro);
+
+// mensagem digitando
+const msg = document.getElementById('msg');
+setTimeout(() => {
+  let i = 0;
+  const tick = () => {
+    msg.textContent = MENSAGEM.slice(0, ++i);
+    if (i < MENSAGEM.length) setTimeout(tick, 70 + R() * 60);
+    else { msg.classList.add('fim'); document.getElementById('dica').style.opacity = 1; }
+  };
+  tick();
+}, 4000);
+</script>
+</body>
+</html>
